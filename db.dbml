@@ -1,0 +1,212 @@
+// =====================
+// ENUMS
+// =====================
+Enum PermissionScope {
+  UNLIMITED
+  TIME_BASED
+}
+
+Enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PERMISSION_ASSIGN
+  PERMISSION_REVOKE
+  PAYMENT
+  RESULT_PUBLISH
+}
+
+Enum NoticeScope {
+  GLOBAL
+  BATCH
+}
+
+// =====================
+// USER & AUTH
+// =====================
+Table User {
+  id int [pk, increment]
+  email varchar [unique]
+  password varchar
+  isActive boolean
+  createdAt datetime
+  updatedAt datetime
+}
+
+Table Profile {
+  id int [pk, increment]
+  name varchar
+  metadata json
+  isEnabled boolean
+  userId int [unique]
+}
+
+Table Permission {
+  id int [pk, increment]
+  name varchar [unique]
+  description varchar
+  scope PermissionScope
+  startDate datetime
+  endDate datetime
+}
+
+Table UserPermission {
+  id int [pk, increment]
+  userId int
+  permissionId int
+  assignedAt datetime
+  revokedAt datetime
+}
+
+// =====================
+// ACADEMIC CORE
+// =====================
+Table Student {
+  id int [pk, increment]
+  firstName varchar
+  lastName varchar
+  dob datetime
+  guardianInfo json
+}
+
+Table Instructor {
+  id int [pk, increment]
+  firstName varchar
+  lastName varchar
+  bio varchar
+}
+
+Table Course {
+  id int [pk, increment]
+  title varchar
+  description varchar
+  durationWeeks int
+  feeStructure json
+  isActive boolean
+  instructorId int
+}
+
+Table Batch {
+  id int [pk, increment]
+  name varchar
+  startDate datetime
+  endDate datetime
+  capacity int
+  isActive boolean
+  instructorId int
+}
+
+Table CourseBatch {
+  id int [pk, increment]
+  courseId int
+  batchId int
+}
+
+Table Enrollment {
+  id int [pk, increment]
+  studentId int
+  courseBatchId int
+  status varchar
+  createdAt datetime
+}
+
+Table Attendance {
+  id int [pk, increment]
+  date datetime
+  present boolean
+  studentId int
+  instructorId int
+  batchId int
+}
+
+// =====================
+// EXAMS
+// =====================
+Table Exam {
+  id int [pk, increment]
+  title varchar
+  date datetime
+  courseId int
+}
+
+Table ExamResult {
+  id int [pk, increment]
+  examId int
+  studentId int
+  marks float
+  grade varchar
+}
+
+// =====================
+// FEES & PAYMENTS
+// =====================
+Table Fee {
+  id int [pk, increment]
+  amount decimal
+  dueDate datetime
+  paid boolean
+  studentId int
+}
+
+Table Payment {
+  id int [pk, increment]
+  feeId int
+  amountPaid decimal
+  paidAt datetime
+  method varchar
+}
+
+// =====================
+// NOTICE & AUDIT
+// =====================
+Table Notice {
+  id int [pk, increment]
+  title varchar
+  content text
+  scope NoticeScope
+  batchId int
+  expiresAt datetime
+  createdAt datetime
+}
+
+Table AuditLog {
+  id int [pk, increment]
+  action AuditAction
+  entity varchar
+  entityId int
+  performedById int
+  timestamp datetime
+  details json
+}
+
+// =====================
+// RELATIONSHIPS
+// =====================
+Ref: Profile.userId > User.id
+Ref: UserPermission.userId > User.id
+Ref: UserPermission.permissionId > Permission.id
+
+Ref: Course.instructorId > Instructor.id
+Ref: Batch.instructorId > Instructor.id
+
+Ref: CourseBatch.courseId > Course.id
+Ref: CourseBatch.batchId > Batch.id
+
+Ref: Enrollment.studentId > Student.id
+Ref: Enrollment.courseBatchId > CourseBatch.id
+
+Ref: Attendance.studentId > Student.id
+Ref: Attendance.instructorId > Instructor.id
+Ref: Attendance.batchId > Batch.id
+
+Ref: Exam.courseId > Course.id
+Ref: ExamResult.examId > Exam.id
+Ref: ExamResult.studentId > Student.id
+
+Ref: Fee.studentId > Student.id
+Ref: Payment.feeId > Fee.id
+
+Ref: Notice.batchId > Batch.id
+Ref: AuditLog.performedById > User.id

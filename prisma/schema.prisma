@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum PermissionScope {
+  UNLIMITED
+  TIME_BASED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PERMISSION_ASSIGN
+  PERMISSION_REVOKE
+  PAYMENT
+  RESULT_PUBLISH
+}
+
+enum NoticeScope {
+  GLOBAL
+  BATCH
+}
+
+// Core models
+model User {
+  id          Int              @id @default(autoincrement())
+  email       String           @unique
+  password    String
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  profile     Profile?
+  permissions UserPermission[]
+  auditLogs   AuditLog[]
+}
+
+model Profile {
+  id          Int          @id @default(autoincrement())
+  name        String
+  metadata    Json?
+  isEnabled   Boolean      @default(true)
+  user        User         @relation(fields: [userId], references: [id])
+  userId      Int          @unique
+  permissions Permission[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  scope       PermissionScope  @default(UNLIMITED)
+  startDate   DateTime?
+  endDate     DateTime?
+  profiles    Profile[]        @relation(references: [id])
+  userPerms   UserPermission[]
+}
+
+model UserPermission {
+  id           Int        @id @default(autoincrement())
+  user         User       @relation(fields: [userId], references: [id])
+  userId       Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+  assignedAt   DateTime   @default(now())
+  revokedAt    DateTime?
+}
+
+model Student {
+  id           Int          @id @default(autoincrement())
+  firstName    String
+  lastName     String
+  dob          DateTime?
+  guardianInfo Json?
+  enrollments  Enrollment[]
+  attendances  Attendance[]
+  fees         Fee[]
+  auditLogs    AuditLog[]
+  examResults  ExamResult[]
+}
+
+model Instructor {
+  id          Int          @id @default(autoincrement())
+  firstName   String
+  lastName    String
+  bio         String?
+  courses     Course[]     @relation("InstructorCourses")
+  batches     Batch[]      @relation("InstructorBatches")
+  attendances Attendance[]
+  auditLogs   AuditLog[]
+}
+
+model Course {
+  id            Int           @id @default(autoincrement())
+  title         String
+  description   String?
+  durationWeeks Int?
+  feeStructure  Json?
+  isActive      Boolean       @default(true)
+  batches       CourseBatch[]
+  enrollments   Enrollment[]
+  exams         Exam[]
+  instructor    Instructor?   @relation("InstructorCourses", fields: [instructorId], references: [id])
+  instructorId  Int?
+}
+
+model Batch {
+  id            Int           @id @default(autoincrement())
+  name          String
+  startDate     DateTime
+  endDate       DateTime
+  capacity      Int?
+  isActive      Boolean       @default(true)
+  courseBatches CourseBatch[]
+  enrollments   Enrollment[]
+  instructor    Instructor?   @relation("InstructorBatches", fields: [instructorId], references: [id])
+  instructorId  Int?
+  attendances   Attendance[]
+  notices       Notice[]
+}
+
+model CourseBatch {
+  id          Int          @id @default(autoincrement())
+  course      Course       @relation(fields: [courseId], references: [id])
+  courseId    Int
+  batch       Batch        @relation(fields: [batchId], references: [id])
+  batchId     Int
+  enrollments Enrollment[]
+}
+
+model Enrollment {
+  id            Int         @id @default(autoincrement())
+  student       Student     @relation(fields: [studentId], references: [id])
+  studentId     Int
+  courseBatch   CourseBatch @relation(fields: [courseBatchId], references: [id])
+  courseBatchId Int
+  status        String      @default("ENROLLED")
+  createdAt     DateTime    @default(now())
+  course        Course?     @relation(fields: [courseId], references: [id])
+  courseId      Int?
+  batch         Batch?      @relation(fields: [batchId], references: [id])
+  batchId       Int?
+}
+
+model Attendance {
+  id           Int         @id @default(autoincrement())
+  date         DateTime
+  present      Boolean
+  student      Student?    @relation(fields: [studentId], references: [id])
+  studentId    Int?
+  instructor   Instructor? @relation(fields: [instructorId], references: [id])
+  instructorId Int?
+  batch        Batch?      @relation(fields: [batchId], references: [id])
+  batchId      Int?
+}
+
+model Exam {
+  id       Int          @id @default(autoincrement())
+  title    String
+  date     DateTime
+  course   Course       @relation(fields: [courseId], references: [id])
+  courseId Int
+  results  ExamResult[]
+}
+
+model ExamResult {
+  id        Int     @id @default(autoincrement())
+  exam      Exam    @relation(fields: [examId], references: [id])
+  examId    Int
+  student   Student @relation(fields: [studentId], references: [id])
+  studentId Int
+  marks     Float
+  grade     String?
+}
+
+model Fee {
+  id        Int       @id @default(autoincrement())
+  amount    Decimal   @db.Decimal(10, 2)
+  dueDate   DateTime
+  paid      Boolean   @default(false)
+  student   Student   @relation(fields: [studentId], references: [id])
+  studentId Int
+  payments  Payment[]
+}
+
+model Payment {
+  id         Int      @id @default(autoincrement())
+  fee        Fee      @relation(fields: [feeId], references: [id])
+  feeId      Int
+  amountPaid Decimal  @db.Decimal(10, 2)
+  paidAt     DateTime @default(now())
+  method     String?
+}
+
+model Notice {
+  id        Int         @id @default(autoincrement())
+  title     String
+  content   String
+  scope     NoticeScope @default(GLOBAL)
+  batch     Batch?      @relation(fields: [batchId], references: [id])
+  batchId   Int?
+  expiresAt DateTime?
+  createdAt DateTime    @default(now())
+}
+
+model AuditLog {
+  id            Int         @id @default(autoincrement())
+  action        AuditAction
+  entity        String
+  entityId      Int?
+  performedBy   User?       @relation(fields: [performedById], references: [id])
+  performedById Int?
+  timestamp     DateTime    @default(now())
+  details       Json?
+  student       Student?    @relation(fields: [studentId], references: [id])
+  studentId     Int?
+  instructor    Instructor? @relation(fields: [instructorId], references: [id])
+  instructorId  Int?
+}
